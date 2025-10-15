@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eldarin Vocabulary Trainer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-primary: #047857; /* Dark Teal/Green */
+            --color-secondary: #fcd34d; /* Amber/Gold */
+            --color-background: #0f172a; /* Slate Blue/Navy */
+            --color-text: #f8fafc; /* White */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--color-background);
+            color: var(--color-text);
+            min-height: 100vh;
+        }
+        .card {
+            background-color: #1e293b; /* Darker Slate */
+            border: 1px solid #334155;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        .btn-primary {
+            background-color: var(--color-secondary);
+            color: var(--color-background);
+            font-weight: 700;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #fbbf24; /* Slightly darker gold */
+        }
+        .input-text {
+            background-color: #334155;
+            color: var(--color-text);
+            border: 2px solid #64748b;
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+        }
+        .tab-button {
+            transition: background-color 0.2s, color 0.2s;
+            flex-shrink: 0;
+        }
+        .tab-button.active {
+            border-bottom: 3px solid var(--color-secondary);
+            color: var(--color-secondary);
+        }
+        .grammar-table th, .grammar-table td {
+            padding: 0.5rem;
+            border: 1px solid #334155;
+            text-align: left;
+        }
+        .grammar-table th {
+            background-color: #1e293b;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div id="app" class="max-w-4xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-50 mb-2">Eldarin Vocabulary Trainer</h1>
+            <p class="text-lg text-gray-400">Mastering Sindarin, the Grey-Elven Tongue</p>
+        </header>
+
+        <!-- TABS -->
+        <div class="flex flex-wrap gap-2 md:gap-0 mb-8 border-b border-gray-700">
+            <button class="tab-button px-4 py-3 text-lg font-medium active" onclick="switchTab('word-quiz')">
+                Word Quiz
+            </button>
+            <button class="tab-button px-4 py-3 text-lg font-medium" onclick="switchTab('phrase-quiz')">
+                Phrase Quiz
+            </button>
+            <button class="tab-button px-4 py-3 text-lg font-medium" onclick="switchTab('list')">
+                Word List
+            </button>
+            <button class="tab-button px-4 py-3 text-lg font-medium" onclick="switchTab('phrases')">
+                Common Phrases
+            </button>
+            <button class="tab-button px-4 py-3 text-lg font-medium" onclick="switchTab('grammar')">
+                Simple Grammar
+            </button>
+            <button class="tab-button px-4 py-3 text-lg font-medium" onclick="switchTab('affixes')">
+                Affixes & Word-Building
+            </button>
+        </div>
+
+        <!-- FIREBASE AUTH STATUS -->
+        <div id="auth-status" class="text-xs text-gray-500 mb-4 rounded-lg p-2 bg-gray-800">
+            Authentication Status: <span id="user-id-display">Loading...</span>
+        </div>
+
+        <!-- Word Quiz Tab Content (Renamed and ID updated) -->
+        <div id="word-quiz-tab" class="tab-content">
+            <div id="word-quiz-card" class="card p-6 md:p-8 rounded-xl text-center min-h-64 flex flex-col justify-center">
+                <p id="word-quiz-prompt" class="text-2xl font-semibold mb-4 text-gray-200">Loading Question...</p>
+                <div class="flex flex-col items-center">
+                    <input type="text" id="word-answer-input" class="input-text w-full max-w-sm text-center text-xl p-3 mb-4" placeholder="Type your word translation">
+                    <button class="btn-primary" onclick="checkWordAnswer()">Submit Answer</button>
+                </div>
+                <p id="word-feedback-message" class="text-lg mt-4 font-medium min-h-6"></p>
+                <button id="word-next-button" class="btn-primary mt-4 w-1/3 mx-auto hidden" onclick="nextWordQuestion()">Next Word</button>
+            </div>
+            <div class="mt-6 text-center">
+                <p class="text-gray-400">Word Score: <span id="word-score-correct">0</span> / <span id="word-score-total">0</span></p>
+            </div>
+        </div>
+
+        <!-- Phrase Quiz Tab Content -->
+        <div id="phrase-quiz-tab" class="tab-content hidden">
+            <div id="phrase-quiz-card" class="card p-6 md:p-8 rounded-xl text-center min-h-64 flex flex-col justify-center">
+                <p id="phrase-quiz-prompt" class="text-2xl font-semibold mb-4 text-gray-200">Loading Phrase...</p>
+                <p class="text-sm text-gray-500 mb-4">Focus on core meaning. Punctuation and capitalization are ignored.</p>
+                <div class="flex flex-col items-center">
+                    <input type="text" id="phrase-answer-input" class="input-text w-full max-w-xl text-center text-xl p-3 mb-4" placeholder="Type your full phrase translation">
+                    <button class="btn-primary" onclick="checkPhraseAnswer()">Submit Answer</button>
+                </div>
+                <p id="phrase-feedback-message" class="text-lg mt-4 font-medium min-h-6"></p>
+                <button id="phrase-next-button" class="btn-primary mt-4 w-1/3 mx-auto hidden" onclick="nextPhraseQuestion()">Next Phrase</button>
+            </div>
+            <div class="mt-6 text-center">
+                <p class="text-gray-400">Phrase Score: <span id="phrase-score-correct">0</span> / <span id="phrase-score-total">0</span></p>
+            </div>
+        </div>
+
+        <!-- Word List Tab Content -->
+        <div id="list-tab" class="tab-content hidden">
+            <input type="text" id="search-input" class="input-text w-full p-3 mb-6" placeholder="Search in Sindarin or English...">
+            <div id="vocabulary-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Word cards will be rendered here -->
+            </div>
+        </div>
+        
+        <!-- Common Phrases Tab Content -->
+        <div id="phrases-tab" class="tab-content hidden">
+            <h2 class="text-2xl font-semibold text-white mb-4 border-b border-gray-700 pb-2">Essential Sindarin Phrases and Sayings</h2>
+            <div id="phrases-list" class="grid grid-cols-1 md:grid-cols-1 gap-4">
+                <!-- Phrase cards will be rendered here -->
+            </div>
+        </div>
+
+        <!-- Simple Grammar Tab Content (Mutation) -->
+        <div id="grammar-tab" class="tab-content hidden p-4 md:p-6 card rounded-xl">
+            
+            <h2 class="text-3xl font-bold text-amber-400 mb-4">Understanding Sindarin: Soft Mutation (Lenition)</h2>
+            <p class="text-gray-300 mb-6">
+                Sindarin uses **consonant mutation** (changing the first sound of a word) to indicate grammatical relationships. The most common is the **Soft Mutation** (Lenition). This often happens when a word follows an article (like 'the') or certain prepositions.
+            </p>
+
+            <h3 class="text-xl font-semibold text-gray-100 mb-3">Soft Mutation Rules</h3>
+            <div class="overflow-x-auto mb-10">
+                <table class="grammar-table w-full rounded-lg overflow-hidden">
+                    <thead>
+                        <tr>
+                            <th>Original Sound</th>
+                            <th>Mutated Sound</th>
+                            <th>Example</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>p</td>
+                            <td>**b**</td>
+                            <td>*Parf* (book) &rarr; *i **b**arf* (the book)</td>
+                        </tr>
+                        <tr>
+                            <td>t</td>
+                            <td>**d**</td>
+                            <td>*Taur* (forest) &rarr; *i **d**aur* (the forest)</td>
+                        </tr>
+                        <tr>
+                            <td>c</td>
+                            <td>**g**</td>
+                            <td>*Cor* (ring) &rarr; *i **g**or* (the ring)</td>
+                        </tr>
+                        <tr>
+                            <td>b</td>
+                            <td>**v**</td>
+                            <td>*Barad* (tower) &rarr; *i **v**arad* (the tower)</td>
+                        </tr>
+                        <tr>
+                            <td>d</td>
+                            <td>**dh**</td>
+                            <td>*Dôr* (land) &rarr; *i **dh**ôr* (the land)</td>
+                        </tr>
+                        <tr>
+                            <td>g</td>
+                            <td>(vanishes)</td>
+                            <td>*Gîl* (star) &rarr; *i **'îl*** (the star)</td>
+                        </tr>
+                        <tr>
+                            <td>m</td>
+                            <td>**v**</td>
+                            <td>*Mellon* (friend) &rarr; *i **v**ellon* (the friend)</td>
+                        </tr>
+                        <tr>
+                            <td>s</td>
+                            <td>**h**</td>
+                            <td>*Sîr* (river) &rarr; *i **h**îr* (the river)</td>
+                        </tr>
+                        <tr>
+                            <td>rh, lh</td>
+                            <td>**r, l**</td>
+                            <td>*Rhao* (lion) &rarr; *i **r**ao* (the lion)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Affixes Tab Content (New Dedicated Tab) -->
+        <div id="affixes-tab" class="tab-content hidden p-4 md:p-6 card rounded-xl">
+            <h2 class="text-3xl font-bold text-amber-400 mb-4">Sindarin Affixes: Prefixes and Suffixes</h2>
+            <p class="text-gray-300 mb-6">
+                Affixes are powerful tools for compounding or modifying the meaning of a **root word** (usually a noun or verb stem).
+            </p>
+
+            <h3 class="text-xl font-semibold text-gray-100 mb-3">Prefixes (Attaching to the start of a word)</h3>
+            <div class="overflow-x-auto mb-8">
+                <table class="grammar-table w-full rounded-lg overflow-hidden">
+                    <thead>
+                        <tr>
+                            <th>Prefix</th>
+                            <th>Meaning</th>
+                            <th>Example Root / Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>**an-**</td>
+                            <td>unto, to, near</td>
+                            <td>*dûn* (west) &rarr; *an**nûn*** (westwards, sunset)</td>
+                        </tr>
+                        <tr>
+                            <td>**ad-**</td>
+                            <td>back, again, re-</td>
+                            <td>*gar* (hold) &rarr; *ad**gar**- (to hold again, recover)</td>
+                        </tr>
+                        <tr>
+                            <td>**min-**</td>
+                            <td>single, one, in-</td>
+                            <td>*sir* (flow) &rarr; *min**as** (a single stream/channel)</td>
+                        </tr>
+                        <tr>
+                            <td>**tû**-</td>
+                            <td>very, exceedingly</td>
+                            <td>*cael* (sleep) &rarr; *tû**gail** (deep sleep)*</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p class="text-sm text-gray-500 mt-2 p-2">
+                    *Note: Prefixes often trigger consonant mutation (like Soft or Nasal Mutation) in the following word, as seen in the *tûgail* example.*
+                </p>
+            </div>
+
+            <h3 class="text-xl font-semibold text-gray-100 mb-3">Suffixes (Attaching to the end of a word)</h3>
+            <div class="overflow-x-auto">
+                <table class="grammar-table w-full rounded-lg overflow-hidden">
+                    <thead>
+                        <tr>
+                            <th>Suffix</th>
+                            <th>Meaning</th>
+                            <th>Example Root / Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>**-ath**</td>
+                            <td>Collective plural (all of a group)</td>
+                            <td>*elen* (star) &rarr; *elen**ath*** (all the stars, the starry host)</td>
+                        </tr>
+                        <tr>
+                            <td>**-rim**</td>
+                            <td>People, host, tribe</td>
+                            <td>*Eldar* (Elves) &rarr; *Elda**rim*** (Host/People of the Elves)</td>
+                        </tr>
+                        <tr>
+                            <td>**-as**</td>
+                            <td>Abstract noun (quality, state)</td>
+                            <td>*cal* (light) &rarr; *cal**as*** (brightness, light)</td>
+                        </tr>
+                        <tr>
+                            <td>**-on**</td>
+                            <td>Masculine singular agent (one who does)</td>
+                            <td>*ped* (speak) &rarr; *ped**on*** (speaker)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, query, onSnapshot, updateDoc, arrayUnion, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Set log level for debugging
+        setLogLevel('Debug');
+
+        // --- MANDATORY FIREBASE INITIALIZATION ---
+        // Note: These variables are provided by the canvas environment. For GitHub Pages deployment, they will be undefined, and the app will run in 'Local Mode' without database features.
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'elvish-trainer';
+
+        let app;
+        let db;
+        let auth;
+        let userId = null;
+        let isAuthReady = false;
+
+        const initFirebase = async () => {
+            if (Object.keys(firebaseConfig).length === 0) {
+                console.error("Firebase config not available. Running in local mode.");
+                document.getElementById('user-id-display').textContent = 'Local Mode (No Persistence)';
+                isAuthReady = true;
+                return;
+            }
+
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Sign in logic
+                await new Promise((resolve) => {
+                    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+                        unsubscribe(); // Stop listening after the initial check
+
+                        if (user) {
+                            userId = user.uid;
+                        } else if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                            userId = auth.currentUser.uid;
+                        } else {
+                            // Anonymous sign-in if no token is provided
+                            const anonUser = await signInAnonymously(auth);
+                            userId = anonUser.user.uid;
+                        }
+
+                        document.getElementById('user-id-display').textContent = `User ID: ${userId}`;
+                        isAuthReady = true;
+
+                        // Start monitoring for a user 'score' document (example use case)
+                        if (db) {
+                            listenForUserScore(userId);
+                        }
+
+                        resolve();
+                    });
+                });
+
+            } catch (error) {
+                console.error("Firebase initialization or sign-in error:", error);
+                document.getElementById('user-id-display').textContent = `Auth Error: ${error.message.substring(0, 50)}...`;
+                isAuthReady = true; // Mark as ready even on error to unblock UI
+            }
+        };
+
+        // Example Firestore function: Listen for user-specific score (Private Data)
+        const listenForUserScore = (uid) => {
+            const userDocPath = `artifacts/${appId}/users/${uid}/scores/elvish-vocab`;
+            const userDocRef = doc(db, userDocPath);
+
+            onSnapshot(userDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    // console.log("Current user score data:", docSnap.data());
+                    // Future implementation: Update quiz score based on saved data
+                } else {
+                    // console.log("No saved score data for this user.");
+                    // Future implementation: Create an initial score document
+                }
+            }, (error) => {
+                console.error("Error listening to user score:", error);
+            });
+        };
+        // --- END FIREBASE INITIALIZATION ---
+
+        // Initialize Firebase on load
+        window.addEventListener('load', initFirebase);
+
+    </script>
+
+    <!-- Application Logic -->
+    <script>
+        // Sindarin Vocabulary Data (English -> Sindarin) - EXPANDED
+        const VOCABULARY = [
+            { en: "Greetings", qy: "Suilad", type: "Greeting" },
+            { en: "Friend", qy: "Mellon", type: "Noun" },
+            { en: "Star", qy: "Êl", type: "Noun" },
+            { en: "Sun", qy: "Anor", type: "Noun" },
+            { en: "Moon", qy: "Ithil", type: "Noun" },
+            { en: "Water", qy: "Nen", type: "Noun" },
+            { en: "Mountain", qy: "Orod", type: "Noun" },
+            { en: "Forest", qy: "Taur", type: "Noun" },
+            { en: "River", qy: "Sir", type: "Noun" },
+            { en: "Heart", qy: "Gûr", type: "Noun" },
+            { en: "Great", qy: "Bein", type: "Adjective" },
+            { en: "Good", qy: "Mab", type: "Adjective" },
+            { en: "Light", qy: "Calad", type: "Noun" },
+            { en: "Darkness", qy: "Môr", type: "Noun" },
+            { en: "To go", qy: "Men", type: "Verb" },
+            { en: "To see", qy: "Cen", type: "Verb" },
+            { en: "Speak (Command)", qy: "Pedo", type: "Verb" },
+            { en: "Farewell", qy: "Novaer", type: "Phrase" },
+            { en: "Elf", qy: "Eldo", type: "Noun" },
+            { en: "Man (Human)", qy: "Adan", type: "Noun" },
+            // --- New Words ---
+            { en: "Sea", qy: "Aear", type: "Noun" },
+            { en: "Home", qy: "Mar", type: "Noun" },
+            { en: "Gate", qy: "Andon", type: "Noun" },
+            { en: "Sword", qy: "Megil", type: "Noun" },
+            { en: "Gold", qy: "Mallen", type: "Noun" },
+            { en: "Silver", qy: "Mithril", type: "Noun" },
+            { en: "Black", qy: "Morn", type: "Adjective" },
+            { en: "White", qy: "Fain", type: "Adjective" },
+            { en: "West", qy: "Annûn", type: "Direction" },
+            { en: "East", qy: "Amûn", type: "Direction" },
+            { en: "Elf-friend", qy: "Eldamel", type: "Noun" },
+            { en: "Dwarf", qy: "Nogoth", type: "Noun" },
+            { en: "Hobbit", qy: "Perian", type: "Noun" },
+            { en: "Hope", qy: "Estel", type: "Noun" },
+            { en: "Path", qy: "Pad", type: "Noun" },
+            { en: "Song", qy: "Lind", type: "Noun" },
+            { en: "Tree", qy: "Orn", type: "Noun" },
+            { en: "Shadow", qy: "Daer", type: "Noun" },
+            { en: "Wind", qy: "Súth", type: "Noun" },
+            { en: "Stone", qy: "Gond", type: "Noun" },
+            { en: "Lady", qy: "Hiril", type: "Noun" },
+            { en: "Lord", qy: "Hir", type: "Noun" },
+            { en: "Fire", qy: "Naur", type: "Noun" },
+            { en: "Shield", qy: "Thang", type: "Noun" },
+            { en: "Horse", qy: "Roch", type: "Noun" },
+        ];
+        
+        // Sindarin Phrases Data - EXPANDED
+        const PHRASES = [
+            { en: "Welcome, friend.", qy: "Mae govannen", type: "Greeting" },
+            { en: "My heart is heavy.", qy: "Barth gûr nîn", type: "Emotional Statement" },
+            { en: "May it be well with you.", qy: "Galu", type: "Blessing" },
+            { en: "Go with my blessing.", qy: "Meno galu", type: "Farewell" },
+            { en: "I see a star.", qy: "Tîr în êl", type: "Simple Statement" },
+            { en: "I greet you.", qy: "Suilannad le", type: "Formal Greeting" },
+            { en: "Speak, friend!", qy: "Pedo mellon", type: "Command/Invitation" },
+            { en: "Listen!", qy: "Lasto", type: "Command" },
+            { en: "The Moon is rising.", qy: "Menelathil aen", type: "Observation" },
+            { en: "Yes, truly.", qy: "Nai", type: "Affirmation" },
+            { en: "No, not at all.", qy: "Lá", type: "Negation" },
+            // --- New Phrases ---
+            { en: "A star shines.", qy: "Êl síla", type: "Statement" },
+            { en: "It is far away.", qy: "Hîr i môr", type: "Observation" },
+            { en: "Be well.", qy: "No ior", type: "Wishing Well" },
+            { en: "We are here.", qy: "Mar estel", type: "Statement" },
+            { en: "Good hunting.", qy: "Mabo dagnir", type: "Wishing Well" },
+            { en: "Walk in peace.", qy: "Mina dagor", type: "Farewell" },
+            { en: "Do not fear.", qy: "N'alae", type: "Command" },
+            { en: "I have hope.", qy: "Estel nîn", type: "Emotional Statement" },
+            { en: "The fire is lit.", qy: "Naur aen", type: "Observation" },
+            { en: "Hold fast.", qy: "Daro", type: "Command" },
+            { en: "Come!", qy: "Tolo!", type: "Command" },
+            { en: "Go now.", qy: "Abo men", type: "Command" },
+            { en: "May the stars shine on your road.", qy: "Gil síla erin lîn aen", type: "Blessing" },
+            { en: "What is your name?", qy: "Man eneth lîn?", type: "Question" },
+            { en: "My name is...", qy: "Eneth nîn...", type: "Statement" },
+            { en: "You are wise.", qy: "Hîr i thelyn", type: "Compliment" },
+            { en: "Thank you.", qy: "Nai elen", type: "Thanks" },
+            { en: "Listen to the wind.", qy: "Lasto i súth", type: "Command/Observation" },
+            { en: "Hail!", qy: "A Eärello!", type: "Greeting" },
+            { en: "I am hungry.", qy: "Naur hîn", type: "Statement" },
+        ];
+
+        let wordCurrentQuestion = null;
+        let phraseCurrentQuestion = null;
+        let wordScore = { correct: 0, total: 0 };
+        let phraseScore = { correct: 0, total: 0 };
+        const QUIZ_TYPE = {
+            EN_TO_QY: 0,
+            QY_TO_EN: 1
+        };
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderVocabularyList(VOCABULARY);
+            renderPhrasesList(PHRASES);
+            renderGrammarTab(); // New function call
+            setupWordQuiz(); // Initial setup for the active tab
+            setupPhraseQuiz(); // Setup phrase quiz logic too
+            document.getElementById('search-input').addEventListener('input', filterVocabulary);
+            
+            // Set up Enter key listeners for both quizzes
+            document.getElementById('word-answer-input').addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    checkWordAnswer();
+                }
+            });
+            document.getElementById('phrase-answer-input').addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    checkPhraseAnswer();
+                }
+            });
+        });
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+
+            document.getElementById(tabId + '-tab').classList.remove('hidden');
+            // Find the correct button using its text or custom data attribute (here, we rely on the target ID)
+            document.querySelector(`[onclick="switchTab('${tabId}')"]`).classList.add('active');
+
+            // Reset or setup quizzes when tabs are switched
+            if (tabId === 'word-quiz') {
+                setupWordQuiz();
+            } else if (tabId === 'phrase-quiz') {
+                setupPhraseQuiz();
+            }
+        }
+
+        // --- WORD QUIZ LOGIC (Refactored) ---
+
+        function setupWordQuiz() {
+            nextWordQuestion();
+            updateWordScoreDisplay();
+        }
+
+        function nextWordQuestion() {
+            // Reset UI elements specific to Word Quiz
+            const input = document.getElementById('word-answer-input');
+            const feedback = document.getElementById('word-feedback-message');
+            const nextBtn = document.getElementById('word-next-button');
+
+            input.value = '';
+            input.disabled = false;
+            feedback.textContent = '';
+            feedback.classList.remove('text-green-400', 'text-red-400');
+            nextBtn.classList.add('hidden');
+
+            // Select a random word
+            const randomIndex = Math.floor(Math.random() * VOCABULARY.length);
+            const word = VOCABULARY[randomIndex];
+
+            // Determine question direction (50/50)
+            const direction = Math.random() < 0.5 ? QUIZ_TYPE.EN_TO_QY : QUIZ_TYPE.QY_TO_EN;
+
+            if (direction === QUIZ_TYPE.EN_TO_QY) {
+                document.getElementById('word-quiz-prompt').innerHTML = `Translate the English word: <span class="text-white font-bold text-3xl">${word.en}</span>`;
+                wordCurrentQuestion = { word: word, direction: direction, answer: word.qy.toLowerCase() };
+                input.placeholder = 'Sindarin Translation';
+            } else {
+                document.getElementById('word-quiz-prompt').innerHTML = `Translate the Sindarin word: <span class="text-white font-bold text-3xl">${word.qy}</span>`;
+                wordCurrentQuestion = { word: word, direction: direction, answer: word.en.toLowerCase() };
+                input.placeholder = 'English Translation';
+            }
+        }
+
+        function checkWordAnswer() {
+            if (!wordCurrentQuestion) return;
+
+            const input = document.getElementById('word-answer-input');
+            const feedback = document.getElementById('word-feedback-message');
+            const nextBtn = document.getElementById('word-next-button');
+            const userAnswer = input.value.trim().toLowerCase();
+            const correctAnswer = wordCurrentQuestion.answer;
+
+            if (userAnswer === correctAnswer) {
+                feedback.textContent = 'Suilad! Correct!';
+                feedback.classList.remove('text-red-400');
+                feedback.classList.add('text-green-400');
+                wordScore.correct++;
+                wordScore.total++;
+                input.disabled = true;
+                nextBtn.classList.remove('hidden');
+            } else {
+                wordScore.total++;
+                feedback.innerHTML = `Incorrect. Try again! <br> Hint: The correct answer is: <span class="font-bold">${correctAnswer.charAt(0).toUpperCase() + correctAnswer.slice(1)}</span>`;
+                feedback.classList.remove('text-green-400');
+                feedback.classList.add('text-red-400');
+
+                if (wordScore.total - wordScore.correct > 2) {
+                    feedback.innerHTML = `Incorrect. The answer was: <span class="font-bold">${correctAnswer.charAt(0).toUpperCase() + correctAnswer.slice(1)}</span>.`;
+                    input.disabled = true;
+                    nextBtn.classList.remove('hidden');
+                }
+            }
+            updateWordScoreDisplay();
+        }
+
+        function updateWordScoreDisplay() {
+            document.getElementById('word-score-correct').textContent = wordScore.correct;
+            document.getElementById('word-score-total').textContent = wordScore.total;
+        }
+
+
+        // --- PHRASE QUIZ LOGIC (New) ---
+
+        function setupPhraseQuiz() {
+            nextPhraseQuestion();
+            updatePhraseScoreDisplay();
+        }
+
+        function nextPhraseQuestion() {
+            // Reset UI elements specific to Phrase Quiz
+            const input = document.getElementById('phrase-answer-input');
+            const feedback = document.getElementById('phrase-feedback-message');
+            const nextBtn = document.getElementById('phrase-next-button');
+
+            input.value = '';
+            input.disabled = false;
+            feedback.textContent = '';
+            feedback.classList.remove('text-green-400', 'text-red-400');
+            nextBtn.classList.add('hidden');
+
+            // Select a random phrase
+            const randomIndex = Math.floor(Math.random() * PHRASES.length);
+            const phrase = PHRASES[randomIndex];
+
+            // Phrases will only be translated from Sindarin (qy) to English (en)
+            document.getElementById('phrase-quiz-prompt').innerHTML = `Translate the Sindarin phrase: <span class="text-white font-bold text-3xl">${phrase.qy}</span>`;
+            phraseCurrentQuestion = { phrase: phrase, answer: phrase.en.toLowerCase().replace(/[^a-z0-9\s]/g, '') }; // Remove punctuation for easy comparison
+            input.placeholder = 'English Translation';
+        }
+
+        function checkPhraseAnswer() {
+            if (!phraseCurrentQuestion) return;
+
+            const input = document.getElementById('phrase-answer-input');
+            const feedback = document.getElementById('phrase-feedback-message');
+            const nextBtn = document.getElementById('phrase-next-button');
+
+            // Sanitize user input and correct answer for comparison
+            const userAnswer = input.value.trim().toLowerCase().replace(/[^a-z0-9\s]/g, '');
+            const correctAnswer = phraseCurrentQuestion.answer;
+
+            if (userAnswer.includes(correctAnswer) || correctAnswer.includes(userAnswer)) {
+                feedback.textContent = 'Manen! Excellent!';
+                feedback.classList.remove('text-red-400');
+                feedback.classList.add('text-green-400');
+                phraseScore.correct++;
+                phraseScore.total++;
+                input.disabled = true;
+                nextBtn.classList.remove('hidden');
+            } else {
+                phraseScore.total++;
+                // Show the full, clean answer in the hint
+                const cleanAnswer = phraseCurrentQuestion.phrase.en;
+                feedback.innerHTML = `Incorrect. Try again! <br> Hint: The correct translation is close to: <span class="font-bold">"${cleanAnswer}"</span>`;
+                feedback.classList.remove('text-green-400');
+                feedback.classList.add('text-red-400');
+
+                if (phraseScore.total - phraseScore.correct > 2) {
+                    feedback.innerHTML = `Incorrect. The full answer was: <span class="font-bold">"${cleanAnswer}"</span>.`;
+                    input.disabled = true;
+                    nextBtn.classList.remove('hidden');
+                }
+            }
+            updatePhraseScoreDisplay();
+        }
+
+        function updatePhraseScoreDisplay() {
+            document.getElementById('phrase-score-correct').textContent = phraseScore.correct;
+            document.getElementById('phrase-score-total').textContent = phraseScore.total;
+        }
+
+        // --- VOCABULARY LIST LOGIC (Unchanged) ---
+
+        function renderVocabularyList(words) {
+            const listContainer = document.getElementById('vocabulary-list');
+            listContainer.innerHTML = '';
+
+            if (words.length === 0) {
+                listContainer.innerHTML = '<p class="text-center md:col-span-2 text-gray-500">No words match your search.</p>';
+                return;
+            }
+
+            words.forEach(word => {
+                const card = document.createElement('div');
+                card.className = 'card p-4 rounded-lg flex flex-col justify-between';
+                card.innerHTML = `
+                    <div>
+                        <p class="text-2xl font-bold text-white mb-1">${word.qy}</p>
+                        <p class="text-lg text-gray-400">${word.en}</p>
+                    </div>
+                    <span class="text-xs font-mono text-gray-500 mt-2 self-end">${word.type}</span>
+                `;
+                listContainer.appendChild(card);
+            });
+        }
+
+        function filterVocabulary() {
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            const filteredWords = VOCABULARY.filter(word =>
+                word.en.toLowerCase().includes(searchTerm) ||
+                word.qy.toLowerCase().includes(searchTerm) ||
+                word.type.toLowerCase().includes(searchTerm)
+            );
+            renderVocabularyList(filteredWords);
+        }
+        
+        // --- PHRASES LIST LOGIC (Unchanged) ---
+        function renderPhrasesList(phrases) {
+            const listContainer = document.getElementById('phrases-list');
+            listContainer.innerHTML = '';
+
+            phrases.forEach(phrase => {
+                const card = document.createElement('div');
+                card.className = 'card p-5 rounded-lg border-l-4 border-l-amber-400';
+                card.innerHTML = `
+                    <div class="flex flex-col md:flex-row md:justify-between items-start md:items-center">
+                        <div>
+                            <p class="text-xl font-bold text-gray-200">${phrase.qy}</p>
+                            <p class="text-base text-gray-400 mt-1">${phrase.en}</p>
+                        </div>
+                        <span class="text-xs font-mono text-gray-500 mt-3 md:mt-0 whitespace-nowrap">${phrase.type}</span>
+                    </div>
+                `;
+                listContainer.appendChild(card);
+            });
+        }
+
+        // --- GRAMMAR LOGIC (New - Placeholder for content rendering) ---
+        function renderGrammarTab() {
+            // Content is static HTML, so no dynamic rendering needed, but keeping this function for future expansion.
+        }
+    </script>
+</body>
+</html>
